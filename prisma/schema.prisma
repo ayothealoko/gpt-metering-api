@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model Person {
+  personId   String @id @default(uuid())
+  // Public facing id
+  personCuid String @default(cuid()) @unique
+  email String @unique
+  name String
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+  hash String
+  apiKey ApiKey[]
+  customer Customer[]
+}
+
+model ApiKey {
+  apiKeyid String @id @default(uuid())
+  apiKeyCuid String @default(cuid()) @unique
+  person Person @relation(fields: [personId], references:[personId], onUpdate: Cascade, onDelete: Cascade)
+  personId String
+  isValid Boolean @default(true)
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+}
+
+model Customer {
+  customerId String @id @default(uuid())
+  // public id 
+  customerCuid String @default(cuid()) @unique
+  person Person @relation(fields: [personId], references:[personId], onUpdate: Cascade, onDelete: Cascade)
+  personId String @unique
+  name String
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+  meter Meter[]
+}
+
+model MeterGroup {
+  meterGroupId String @id @default(uuid()) 
+  name String
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+  meter Meter[]
+}
+
+model RequestCall {
+  requestCallId String @id @default(uuid())
+  meter Meter @relation(fields:[meterId], references:[meterId], onUpdate: Cascade)
+  meterId String
+  promptTokenCount Int
+  responseTokenCount Int
+  aiModel AiModel @relation(fields:[aiModelId], references:[aiModelId], onUpdate:Cascade)
+  aiModelId String
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+}
+
+model AiModel{
+  aiModelId String @id @default(uuid())
+  modelName String @unique
+  // Per 1k token
+  promptCost Int
+  // Per 1k token
+  completeionCost Int
+  requestCall RequestCall[]
+}
+
+// meter can only be deleted if they have no requestcalls
+model Meter{
+  meterId String @id @default(uuid())
+  // public id 
+  meterCuid String @default(cuid()) @unique
+  meterGroup MeterGroup? @relation(fields:[meterGroupId], references:[meterGroupId], onUpdate: Cascade)
+  meterGroupId String?
+  customer Customer @relation(fields:[customerId], references:[customerId], onUpdate:Cascade)
+  customerId String
+  // cost in dollars
+  // 1 = .0001
+  softQuota Int
+  hardQuota Int
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+  recurring Boolean
+  requestCall RequestCall[]
+  meterPeriod MeterPeriod[]
+}
+
+model MeterPeriod {
+  meterPerionId String @id @default(uuid())
+  meterPeriodCuid String @default(cuid()) @unique
+  meter Meter @relation(fields:[meterId], references:[meterId], onUpdate:Cascade)
+  meterId String
+  startDate DateTime @db.Timestamptz(3) @default(now()) 
+  endDate DateTime @db.Timestamptz(3) @default(now())
+  periodType PeriodType 
+  isCanceled Boolean @default(false)
+  dateCreated DateTime @db.Timestamptz(3) @default(now()) 
+  dateModified DateTime @db.Timestamptz(3) @default(now())
+}
+
+enum PeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
